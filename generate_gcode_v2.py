@@ -62,41 +62,33 @@ def calc_x_range(r, z_layer, xc=XC, zc=ZC):
 
     return xc - actual_x_range, xc + actual_x_range
 
-def generate_arc_path(x_start, x_end, y, z_layer, r, direction=1):
+def generate_arc_path(x_start, x_end, y, z_layer, r):
     """
-    Generate linear approximation of arc path
-    direction: 1 = forward, -1 = reverse
+    Generate arc path from x_start to x_end at constant Y
     """
-    if direction > 0:
-        x_current = x_start
-        x_target = x_end
-        step = DX
-    else:
-        x_current = x_end
-        x_target = x_start
-        step = -DX
-
     lines = []
-    iterations = 0
-    max_iterations = 1000  # Safety limit
 
-    while iterations < max_iterations:
-        # Check termination condition
-        if direction > 0 and x_current > x_target:
-            break
-        if direction < 0 and x_current < x_target:
-            break
+    # Calculate number of X steps
+    x_distance = abs(x_end - x_start)
+    num_steps = max(1, int(x_distance / DX))
 
+    if num_steps == 0:
+        return lines
+
+    x_step = (x_end - x_start) / num_steps
+
+    for i in range(num_steps + 1):
+        x_current = x_start + i * x_step
         z = calc_arc_z(x_current, r, z_layer)
         lines.append(f"G1 X{x_current:.3f} Y{y:.3f} Z{z:.3f}")
 
-        x_current += step
-        iterations += 1
-
     return lines
 
-def generate_layer(layer_num, zigzag=False):
-    """Generate single layer scanning path"""
+def generate_layer(layer_num):
+    """Generate single layer scanning path
+    Path: Center(X0,Y0) -> Right(X_end,Y0) -> Forward(X_end,Y1) ->
+          Center(X0,Y1) -> Left(X_start,Y1) -> Backward(X_start,Y0) -> Center(X0,Y0)
+    """
     z_layer = -DEPTH_PER_LAYER * layer_num
     r_layer = R0 - DEPTH_PER_LAYER * layer_num
 
@@ -109,66 +101,44 @@ def generate_layer(layer_num, zigzag=False):
     lines = []
     lines.append(f"; ====== Layer {layer_num}: Z = {z_layer:.1f} ======")
     lines.append(f"; R = {r_layer:.1f}, X = [{x_start:.2f}, {x_end:.2f}]")
+    lines.append(f"; Path: Center->Right->Forward->Center->Left->Backward->Center")
     lines.append("")
 
-    # Determine scan direction (odd/even optimization)
-    is_odd = (layer_num % 2 == 1)
+    # Starting at Center (XC, Y0)
 
-    if is_odd or not zigzag:
-        # Odd layer OR no zigzag: Left -> Center -> Right
-        # 1) Xc -> X_start @ Y0
-        lines.extend(generate_arc_path(XC, x_start, Y0, z_layer, r_layer, -1))
-        lines.append("")
+    # Step 1: Center (X0, Y0) -> Right (X_end, Y0)
+    lines.append("; Step 1: Center -> Right @ Y0")
+    lines.extend(generate_arc_path(XC, x_end, Y0, z_layer, r_layer))
+    lines.append("")
 
-        # 2) Y0 -> Y1
-        lines.append(f"G1 Y{Y1:.3f}")
-        lines.append("")
+    # Step 2: Forward (X_end, Y0) -> (X_end, Y1)
+    lines.append("; Step 2: Forward Y0 -> Y1 @ Right edge")
+    lines.append(f"G1 Y{Y1:.3f}")
+    lines.append("")
 
-        # 3) X_start -> Xc @ Y1
-        lines.extend(generate_arc_path(x_start, XC, Y1, z_layer, r_layer, 1))
-        lines.append("")
+    # Step 3: Right (X_end, Y1) -> Center (X0, Y1)
+    lines.append("; Step 3: Right -> Center @ Y1")
+    lines.extend(generate_arc_path(x_end, XC, Y1, z_layer, r_layer))
+    lines.append("")
 
-        # 4) Xc -> X_end @ Y1
-        lines.extend(generate_arc_path(XC, x_end, Y1, z_layer, r_layer, 1))
-        lines.append("")
+    # Step 4: Center (X0, Y1) -> Left (X_start, Y1)
+    lines.append("; Step 4: Center -> Left @ Y1")
+    lines.extend(generate_arc_path(XC, x_start, Y1, z_layer, r_layer))
+    lines.append("")
 
-        # 5) Y1 -> Y0
-        lines.append(f"G1 Y{Y0:.3f}")
-        lines.append("")
+    # Step 5: Backward (X_start, Y1) -> (X_start, Y0)
+    lines.append("; Step 5: Backward Y1 -> Y0 @ Left edge")
+    lines.append(f"G1 Y{Y0:.3f}")
+    lines.append("")
 
-        # 6) X_end -> Xc @ Y0
-        lines.extend(generate_arc_path(x_end, XC, Y0, z_layer, r_layer, -1))
-        lines.append("")
-
-    else:
-        # Even layer zigzag: Right -> Center -> Left
-        # 1) Xc -> X_end @ Y0
-        lines.extend(generate_arc_path(XC, x_end, Y0, z_layer, r_layer, 1))
-        lines.append("")
-
-        # 2) Y0 -> Y1
-        lines.append(f"G1 Y{Y1:.3f}")
-        lines.append("")
-
-        # 3) X_end -> Xc @ Y1
-        lines.extend(generate_arc_path(x_end, XC, Y1, z_layer, r_layer, -1))
-        lines.append("")
-
-        # 4) Xc -> X_start @ Y1
-        lines.extend(generate_arc_path(XC, x_start, Y1, z_layer, r_layer, -1))
-        lines.append("")
-
-        # 5) Y1 -> Y0
-        lines.append(f"G1 Y{Y0:.3f}")
-        lines.append("")
-
-        # 6) X_start -> Xc @ Y0
-        lines.extend(generate_arc_path(x_start, XC, Y0, z_layer, r_layer, 1))
-        lines.append("")
+    # Step 6: Left (X_start, Y0) -> Center (X0, Y0)
+    lines.append("; Step 6: Left -> Center @ Y0")
+    lines.extend(generate_arc_path(x_start, XC, Y0, z_layer, r_layer))
+    lines.append("")
 
     return "\n".join(lines)
 
-def generate_gcode(zigzag=True):
+def generate_gcode():
     """Generate complete G-code program"""
 
     output = []
@@ -194,8 +164,13 @@ def generate_gcode(zigzag=True):
     output.append("")
     output.append(f"F{FEED_RATE}            ; Set feed rate")
     output.append("")
+
+    # Calculate arc apex (highest point on inverted arc)
+    z_apex = ZC + R0
+
     output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract to safe height")
-    output.append(f"G0 X{XC:.1f} Y{Y0:.1f}    ; Move to start position")
+    output.append(f"G0 X{XC:.1f} Y{Y0:.1f}    ; Move to apex X,Y position")
+    output.append(f"G0 Z{z_apex:.3f}        ; Lower to arc apex (highest point)")
     output.append("")
     output.append("")
 
@@ -204,7 +179,7 @@ def generate_gcode(zigzag=True):
     output.append("")
 
     for k in range(1, TOTAL_LAYERS + 1):
-        output.append(generate_layer(k, zigzag))
+        output.append(generate_layer(k))
         output.append("")
 
     # Finish
@@ -218,10 +193,4 @@ def generate_gcode(zigzag=True):
 
 # ========== MAIN ==========
 if __name__ == "__main__":
-    import sys
-
-    use_zigzag = True
-    if len(sys.argv) > 1 and sys.argv[1] == "--no-zigzag":
-        use_zigzag = False
-
-    print(generate_gcode(zigzag=use_zigzag))
+    print(generate_gcode())
