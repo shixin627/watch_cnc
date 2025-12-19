@@ -1,0 +1,77 @@
+G90
+G21
+F20
+
+#XC = 0.0          ; 弧面最高點 X
+#XSTART = -12.2
+#XEND   =  12.2
+
+#Y0 = 0.0
+#Y1 = 0.4
+
+#R  = 20.0         ; 外層半徑
+#STEPZ = 0.1       ; 每層下刀量 = 半徑縮量
+#LAYERS = 10       ; 1mm / 0.1
+
+#DX = 0.2          ; X 掃描解析度（越小越圓）
+
+G1 X#XC Y#Y0 Z0
+#Z = 0.0
+#L = 0
+
+WHILE [#L LT #LAYERS] DO1
+
+    #Z = [#Z - #STEPZ]
+    #R = [#R - #STEPZ]
+    #L = [#L + 1]
+
+    ; ===== Xc → X_start（沿弧面下降）=====
+    #X = #XC
+    WHILE [#X GE #XSTART] DO2
+        #DXC = [#X - #XC]
+        #ZARC = [-SQRT[#R*#R - #DXC*#DXC]]
+        IF [#ZARC LT #Z] THEN #ZARC = #Z
+        G1 X#X Y#Y0 Z#ZARC
+        #X = [#X - #DX]
+    END2
+
+    ; ===== Y +0.4 =====
+    G1 X#XSTART Y#Y1 Z#Z
+
+    ; ===== X_start → Xc（沿弧面上升）=====
+    #X = #XSTART
+    WHILE [#X LE #XC] DO3
+        #DXC = [#X - #XC]
+        #ZARC = [-SQRT[#R*#R - #DXC*#DXC]]
+        IF [#ZARC LT #Z] THEN #ZARC = #Z
+        G1 X#X Y#Y1 Z#ZARC
+        #X = [#X + #DX]
+    END3
+
+    ; ===== Xc → X_end（沿弧面下降）=====
+    #X = #XC
+    WHILE [#X LE #XEND] DO4
+        #DXC = [#X - #XC]
+        #ZARC = [-SQRT[#R*#R - #DXC*#DXC]]
+        IF [#ZARC LT #Z] THEN #ZARC = #Z
+        G1 X#X Y#Y1 Z#ZARC
+        #X = [#X + #DX]
+    END4
+
+    ; ===== Y 回到 0 =====
+    G1 X#XEND Y#Y0 Z#Z
+
+    ; ===== X_end → Xc（沿弧面回到頂點）=====
+    #X = #XEND
+    WHILE [#X GE #XC] DO5
+        #DXC = [#X - #XC]
+        #ZARC = [-SQRT[#R*#R - #DXC*#DXC]]
+        IF [#ZARC LT #Z] THEN #ZARC = #Z
+        G1 X#X Y#Y0 Z#ZARC
+        #X = [#X - #DX]
+    END5
+
+END1
+
+G1 Z5.0
+M30
