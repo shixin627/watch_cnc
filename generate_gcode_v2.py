@@ -169,8 +169,8 @@ def generate_gcode():
     output.append("")
 
     # Calculate arc apex (highest point on inverted arc)
-    # Origin stays at Z = ZC + R0, but all machining paths will be offset by -R0
-    z_apex_origin = ZC + R0
+    # Origin stays at Z = ZC
+    z_apex_origin = ZC
 
     output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract to safe height")
     output.append(f"G0 X{XC:.1f} Y{Y0:.1f}    ; Move to apex X,Y position")
