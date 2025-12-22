@@ -19,7 +19,9 @@ DEPTH_PER_LAYER = 0.1   # Depth increment per layer
 TOTAL_LAYERS = 10       # Total number of layers
 DX = 0.2                # X step size (arc discretization precision)
 
-X_RANGE = 12.5           # Machining range from apex (±X_RANGE from XC)
+TOOL_RADIUS = 0.3
+TARGET_X_RANGE = 12.5           # Machining range from apex (±X_RANGE from XC)
+X_RANGE = TARGET_X_RANGE - TOOL_RADIUS           # Machining range from apex (±X_RANGE from XC)
 
 FEED_RATE = 20          # Feed rate (mm/min)
 SAFE_Z = 0.0            # Safe retract height
