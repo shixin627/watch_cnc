@@ -29,18 +29,19 @@ SAFE_Z = 0.0            # Safe retract height
 def calc_arc_z(x, r, z_layer, xc=XC, zc=ZC):
     """
     Calculate Z value on arc surface at position X
-    Arc equation (INVERTED 180°): Z = Zc + sqrt(R^2 - (X-Xc)^2)
+    Arc equation (INVERTED 180°): Z = Zc + sqrt(R^2 - (X-Xc)^2) - R0
     Returns: max(Z_arc, Z_layer) to not cut deeper than current layer
+    All Z values are offset by -R0 to lower the entire toolpath
     """
     dx = x - xc
     discriminant = r * r - dx * dx
 
     if discriminant < 0:
         # Point outside arc boundary, use layer depth
-        return z_layer
+        return z_layer - R0
 
-    z_arc = zc + math.sqrt(discriminant)  # Changed from - to +
-    return max(z_arc, z_layer)  # Changed from min to max
+    z_arc = zc + math.sqrt(discriminant) - R0  # Subtract R0 to lower the path
+    return max(z_arc, z_layer - R0)  # Changed from min to max, with R0 offset
 
 def calc_x_range(r, z_layer, xc=XC, zc=ZC):
     """
@@ -166,12 +167,14 @@ def generate_gcode():
     output.append("")
 
     # Calculate arc apex (highest point on inverted arc)
-    z_apex = ZC + R0
+    # Origin stays at Z = ZC + R0, but all machining paths will be offset by -R0
+    z_apex_origin = ZC + R0
 
     output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract to safe height")
     output.append(f"G0 X{XC:.1f} Y{Y0:.1f}    ; Move to apex X,Y position")
-    output.append(f"G0 Z{z_apex:.3f}        ; Lower to arc apex (highest point)")
+    output.append(f"G0 Z{z_apex_origin:.3f}        ; Lower to origin (Z = ZC + R0)")
     output.append("")
+    output.append("; NOTE: All subsequent machining paths have Z offset by -R0")
     output.append("")
 
     # Layer scanning
