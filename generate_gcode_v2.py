@@ -87,16 +87,18 @@ def generate_arc_path(x_start, x_end, y, z_layer, r):
 
     return lines
 
-def generate_layer(layer_num):
-    """Generate single layer scanning path
-    Path: Center(X0,Y0) -> Right(X_end,Y0) -> Forward(X_end,Y1) ->
-          Center(X0,Y1) -> Left(X_start,Y1) -> Backward(X_start,Y0) -> Center(X0,Y0)
+def generate_layer(layer_num, y_position=Y0):
+    """Generate single layer scanning path with zigzag pattern
+    Layer 1: Move to right along surface, cut down, then cut left (ends at left)
+    Layer 2: Cut down at left, then cut right (ends at right)
+    Layer 3: Cut down at right, then cut left (ends at left)
+    And so on...
     """
     z_layer = -DEPTH_PER_LAYER * layer_num
     r_layer = R0 - DEPTH_PER_LAYER * layer_num
 
     if r_layer <= 0:
-        return f"; Layer {layer_num}: SKIPPED (R={r_layer:.2f} <= 0)"
+        return f"; Layer {layer_num}: SKIPPED (R={r_layer:.2f} <= 0)", None
 
     # Calculate X range
     x_start, x_end = calc_x_range(r_layer, z_layer)
@@ -104,42 +106,49 @@ def generate_layer(layer_num):
     lines = []
     lines.append(f"; ====== Layer {layer_num}: Z = {z_layer:.1f} ======")
     lines.append(f"; R = {r_layer:.1f}, X = [{x_start:.2f}, {x_end:.2f}]")
-    lines.append(f"; Path: Center->Right->Forward->Center->Left->Backward->Center")
-    lines.append("")
 
-    # Starting at Center (XC, Y0)
+    # Determine direction based on layer number
+    if layer_num % 2 == 1:  # Odd layers: Right to Left
+        lines.append(f"; Path: Right -> Left (zigzag)")
+        lines.append("")
 
-    # Step 1: Center (X0, Y0) -> Right (X_end, Y0)
-    lines.append("; Step 1: Center -> Right @ Y0")
-    lines.extend(generate_arc_path(XC, x_end, Y0, z_layer, r_layer))
-    lines.append("")
+        if layer_num == 1:
+            # First layer: start from center, move to right edge along surface
+            lines.append("; Move from center to right edge along arc surface (no cutting)")
+            lines.extend(generate_arc_path(XC, x_end, y_position, z_layer, R0))
+            lines.append("")
 
-    # Step 2: Forward (X_end, Y0) -> (X_end, Y1)
-    lines.append("; Step 2: Forward Y0 -> Y1 @ Right edge")
-    lines.append(f"G1 Y{Y1:.3f}")
-    lines.append("")
+        # Cut down at right edge
+        lines.append(f"; Cut down to layer depth at right edge")
+        z_right = calc_arc_z(x_end, r_layer, z_layer)
+        lines.append(f"G1 Z{z_right:.3f}")
+        lines.append("")
 
-    # Step 3: Right (X_end, Y1) -> Center (X0, Y1)
-    lines.append("; Step 3: Right -> Center @ Y1")
-    lines.extend(generate_arc_path(x_end, XC, Y1, z_layer, r_layer))
-    lines.append("")
+        # Cut from right to left along arc
+        lines.append("; Cut along arc from right to left")
+        lines.extend(generate_arc_path(x_end, x_start, y_position, z_layer, r_layer))
+        lines.append("")
 
-    # Step 4: Center (X0, Y1) -> Left (X_start, Y1)
-    lines.append("; Step 4: Center -> Left @ Y1")
-    lines.extend(generate_arc_path(XC, x_start, Y1, z_layer, r_layer))
-    lines.append("")
+        end_position = x_start  # End at left
 
-    # Step 5: Backward (X_start, Y1) -> (X_start, Y0)
-    lines.append("; Step 5: Backward Y1 -> Y0 @ Left edge")
-    lines.append(f"G1 Y{Y0:.3f}")
-    lines.append("")
+    else:  # Even layers: Left to Right
+        lines.append(f"; Path: Left -> Right (zigzag)")
+        lines.append("")
 
-    # Step 6: Left (X_start, Y0) -> Center (X0, Y0)
-    lines.append("; Step 6: Left -> Center @ Y0")
-    lines.extend(generate_arc_path(x_start, XC, Y0, z_layer, r_layer))
-    lines.append("")
+        # Cut down at left edge
+        lines.append(f"; Cut down to layer depth at left edge")
+        z_left = calc_arc_z(x_start, r_layer, z_layer)
+        lines.append(f"G1 Z{z_left:.3f}")
+        lines.append("")
 
-    return "\n".join(lines)
+        # Cut from left to right along arc
+        lines.append("; Cut along arc from left to right")
+        lines.extend(generate_arc_path(x_start, x_end, y_position, z_layer, r_layer))
+        lines.append("")
+
+        end_position = x_end  # End at right
+
+    return "\n".join(lines), end_position
 
 def generate_gcode():
     """Generate complete G-code program"""
@@ -184,7 +193,8 @@ def generate_gcode():
     output.append("")
 
     for k in range(1, TOTAL_LAYERS + 1):
-        output.append(generate_layer(k))
+        layer_gcode, _ = generate_layer(k)
+        output.append(layer_gcode)
         output.append("")
 
     # Finish
