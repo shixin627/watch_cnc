@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STL CAM Tool - 智能路徑生成工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <h1>STL CAM Tool</h1>
+      <div class="header-controls">
+        <button id="load-stl-btn" class="btn btn-primary">載入 STL 檔案</button>
+        <button id="export-gcode-btn" class="btn btn-success" disabled>匯出 G-code</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Left Panel: 3D Viewport -->
+      <div class="viewport-panel">
+        <div id="viewport-container">
+          <canvas id="three-canvas"></canvas>
+          <div id="viewport-info" class="viewport-overlay">
+            <p>請載入 STL 檔案開始</p>
+          </div>
+        </div>
+
+        <div class="viewport-controls">
+          <button id="toggle-selection-btn" class="btn" disabled>
+            <span id="selection-mode-text">啟用選擇模式</span>
+          </button>
+          <button id="reset-view-btn" class="btn">重置視角</button>
+          <button id="clear-selection-btn" class="btn" disabled>清除選擇</button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Parameters & Settings -->
+      <div class="control-panel">
+        <div class="panel-section">
+          <h3>模型資訊</h3>
+          <div id="model-info">
+            <p class="info-item">檔案: <span id="file-name">未載入</span></p>
+            <p class="info-item">三角面: <span id="triangle-count">-</span></p>
+            <p class="info-item">尺寸: <span id="model-dimensions">-</span></p>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>選擇區域</h3>
+          <div id="selection-info">
+            <p class="info-item">狀態: <span id="selection-status">未選擇</span></p>
+            <p class="info-item">區域: <span id="selection-bounds">-</span></p>
+            <p class="info-item">預估體積: <span id="estimated-volume">-</span></p>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>加工參數</h3>
+          <div class="param-group">
+            <label for="tool-diameter">刀具直徑 (mm):</label>
+            <input type="number" id="tool-diameter" value="1.0" min="0.1" step="0.1">
+          </div>
+
+          <div class="param-group">
+            <label for="stepover">步距比例 (%):</label>
+            <input type="number" id="stepover" value="40" min="10" max="80" step="5">
+          </div>
+
+          <div class="param-group">
+            <label for="stepdown">每層深度 (mm):</label>
+            <input type="number" id="stepdown" value="0.5" min="0.1" step="0.1">
+          </div>
+
+          <div class="param-group">
+            <label for="feed-rate">進給速度 (mm/min):</label>
+            <input type="number" id="feed-rate" value="100" min="10" step="10">
+          </div>
+
+          <div class="param-group">
+            <label for="safe-z">安全高度 (mm):</label>
+            <input type="number" id="safe-z" value="5.0" min="0" step="1">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>路徑生成</h3>
+          <button id="generate-toolpath-btn" class="btn btn-primary btn-large" disabled>
+            生成刀具路徑
+          </button>
+          <div id="generation-progress" class="progress-info" style="display: none;">
+            <p>正在生成路徑...</p>
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+          </div>
+          <div id="toolpath-info" style="margin-top: 10px;">
+            <p class="info-item">路徑點數: <span id="toolpath-points">-</span></p>
+            <p class="info-item">預估時間: <span id="estimated-time">-</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span id="status-text">就緒</span>
+    </footer>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../node_modules/three/build/three.min.js"></script>
+  <script src="stl-loader.js"></script>
+  <script src="viewport.js"></script>
+  <script src="selection-tool.js"></script>
+  <script src="toolpath-generator.js"></script>
+  <script src="gcode-exporter.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

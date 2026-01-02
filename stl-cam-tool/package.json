@@ -1,0 +1,38 @@
+{
+  "name": "stl-cam-tool",
+  "version": "1.0.0",
+  "description": "STL to G-code CAM Tool with Interactive Region Selection",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win"
+  },
+  "keywords": ["cnc", "cam", "stl", "gcode", "3d"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.stlcamtool.app",
+    "productName": "STL CAM Tool",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "package.json"
+    ]
+  }
+}
