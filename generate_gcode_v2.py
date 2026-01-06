@@ -112,9 +112,9 @@ def generate_layer(layer_num, y_position=Y0):
         lines.append(f"; Path: Both sides -> Center (symmetrical cutting)")
         lines.append("")
 
-        # Part 1: Left side -> Center
-        lines.append("; Move to left edge along surface (no cutting)")
-        lines.extend(generate_arc_path(XC, x_start, y_position, z_layer, R0))
+        # Part 1: Move to left edge and cut to center
+        lines.append("; Move to left edge")
+        lines.append(f"G0 X{x_start:.3f}")
         lines.append("")
 
         lines.append("; Cut down to layer depth at left edge")
@@ -126,7 +126,7 @@ def generate_layer(layer_num, y_position=Y0):
         lines.extend(generate_arc_path(x_start, XC, y_position, z_layer, r_layer))
         lines.append("")
 
-        # Part 2: Move to right side, then cut to center
+        # Part 2: Move to right edge and cut to center
         lines.append("; Retract and move to right edge")
         lines.append(f"G0 Z{SAFE_Z:.1f}")
         lines.append(f"G0 X{x_end:.3f}")
