@@ -88,11 +88,10 @@ def generate_arc_path(x_start, x_end, y, z_layer, r):
     return lines
 
 def generate_layer(layer_num, y_position=Y0):
-    """Generate single layer scanning path with different patterns
-    Layer 1: Both sides to center (Left->Center, then Right->Center)
-    Layer 2+: Zigzag pattern
-        - Even layers: Left to Right
-        - Odd layers: Right to Left
+    """Generate single layer scanning path
+    All layers: Both sides to center (Left->Center, then Right->Center)
+    Layer 1: Direct fast move to edges
+    Layer 2+: Move 1mm at feed rate, then fast move to edge
     """
     z_layer = -DEPTH_PER_LAYER * layer_num
     r_layer = R0 - DEPTH_PER_LAYER * layer_num
@@ -106,89 +105,72 @@ def generate_layer(layer_num, y_position=Y0):
     lines = []
     lines.append(f"; ====== Layer {layer_num}: Z = {z_layer:.1f} ======")
     lines.append(f"; R = {r_layer:.1f}, X = [{x_start:.2f}, {x_end:.2f}]")
+    lines.append(f"; Path: Both sides -> Center (symmetrical cutting)")
+    lines.append("")
 
-    # LAYER 1: Special pattern - both sides to center
+    # Part 1: Move to left edge and cut to center
+    # Calculate the Z height at center for current layer
+    z_center = calc_arc_z(XC, r_layer, z_layer)
+
     if layer_num == 1:
-        lines.append(f"; Path: Both sides -> Center (symmetrical cutting)")
+        # Layer 1: Direct fast move to left edge
+        lines.append("; Move to left edge (fast)")
+        lines.append(f"G0 X{x_start:.3f}")
+        lines.append("")
+    else:
+        # Layer 2+: First move down to current layer height at center, then move horizontally
+        lines.append("; Move down to current layer height at center")
+        lines.append(f"G1 Z{z_center:.3f}")
         lines.append("")
 
-        # Part 1: Move to left edge and cut to center
-        lines.append("; Move to left edge")
+        lines.append("; Move to left edge (1mm feed rate + fast move)")
+        x_intermediate_left = XC - 1.0  # 1mm to the left of center
+        lines.append(f"G1 X{x_intermediate_left:.3f}")
         lines.append(f"G0 X{x_start:.3f}")
         lines.append("")
 
-        lines.append("; Cut down to layer depth at left edge")
-        z_left = calc_arc_z(x_start, r_layer, z_layer)
-        lines.append(f"G1 Z{z_left:.3f}")
-        lines.append("")
+    lines.append("; Cut down to layer depth at left edge")
+    z_left = calc_arc_z(x_start, r_layer, z_layer)
+    # Fast approach: stop 1mm before target depth
+    z_approach_left = z_left + 1.0
+    lines.append(f"G0 Z{z_approach_left:.3f}")
+    # Slow final approach: last 1mm at feed rate
+    lines.append(f"G1 Z{z_left:.3f}")
+    lines.append("")
 
-        lines.append("; Cut from left edge to center")
-        lines.extend(generate_arc_path(x_start, XC, y_position, z_layer, r_layer))
-        lines.append("")
+    lines.append("; Cut from left edge to center")
+    lines.extend(generate_arc_path(x_start, XC, y_position, z_layer, r_layer))
+    lines.append("")
 
-        # Part 2: Move to right edge and cut to center
+    # Part 2: Move to right edge and cut to center
+    if layer_num == 1:
+        # Layer 1: Retract to safe height, then move to right edge
         lines.append("; Retract and move to right edge")
         lines.append(f"G0 Z{SAFE_Z:.1f}")
         lines.append(f"G0 X{x_end:.3f}")
         lines.append("")
-
-        lines.append("; Cut down to layer depth at right edge")
-        z_right = calc_arc_z(x_end, r_layer, z_layer)
-        lines.append(f"G1 Z{z_right:.3f}")
-        lines.append("")
-
-        lines.append("; Cut from right edge to center")
-        lines.extend(generate_arc_path(x_end, XC, y_position, z_layer, r_layer))
-        lines.append("")
-
-        end_position = XC  # End at center
-
-    # LAYER 2+: Zigzag pattern
-    elif layer_num % 2 == 0:  # Even layers: Left to Right
-        lines.append(f"; Path: Left -> Right (zigzag)")
-        lines.append("")
-
-        # Retract and move to left edge
-        lines.append(f"; Retract and move to left edge")
-        # lines.append(f"G0 Z{SAFE_Z:.1f}")
-        lines.append(f"G0 X{x_start:.3f}")
-        lines.append("")
-
-        # Cut down at left edge
-        lines.append(f"; Cut down to layer depth at left edge")
-        z_left = calc_arc_z(x_start, r_layer, z_layer)
-        lines.append(f"G1 Z{z_left:.3f}")
-        lines.append("")
-
-        # Cut from left to right along arc
-        lines.append("; Cut along arc from left to right")
-        lines.extend(generate_arc_path(x_start, x_end, y_position, z_layer, r_layer))
-        lines.append("")
-
-        end_position = x_end  # End at right
-
-    else:  # Odd layers (3, 5, 7...): Right to Left
-        lines.append(f"; Path: Right -> Left (zigzag)")
-        lines.append("")
-
-        # Retract and move to right edge
-        lines.append(f"; Retract and move to right edge")
-        # lines.append(f"G0 Z{SAFE_Z:.1f}")
+    else:
+        # Layer 2+: Move 1mm at feed rate, then fast move to right edge (at current height)
+        lines.append("; Move to right edge (1mm feed rate + fast move)")
+        x_intermediate_right = XC + 1.0  # 1mm to the right of center
+        lines.append(f"G1 X{x_intermediate_right:.3f}")
         lines.append(f"G0 X{x_end:.3f}")
         lines.append("")
 
-        # Cut down at right edge
-        lines.append(f"; Cut down to layer depth at right edge")
-        z_right = calc_arc_z(x_end, r_layer, z_layer)
-        lines.append(f"G1 Z{z_right:.3f}")
-        lines.append("")
+    lines.append("; Cut down to layer depth at right edge")
+    z_right = calc_arc_z(x_end, r_layer, z_layer)
+    # Fast approach: stop 1mm before target depth
+    z_approach_right = z_right + 1.0
+    lines.append(f"G0 Z{z_approach_right:.3f}")
+    # Slow final approach: last 1mm at feed rate
+    lines.append(f"G1 Z{z_right:.3f}")
+    lines.append("")
 
-        # Cut from right to left along arc
-        lines.append("; Cut along arc from right to left")
-        lines.extend(generate_arc_path(x_end, x_start, y_position, z_layer, r_layer))
-        lines.append("")
+    lines.append("; Cut from right edge to center")
+    lines.extend(generate_arc_path(x_end, XC, y_position, z_layer, r_layer))
+    lines.append("")
 
-        end_position = x_start  # End at left
+    end_position = XC  # End at center
 
     return "\n".join(lines), end_position
 
