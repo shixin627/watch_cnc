@@ -26,6 +26,10 @@ X_RANGE = TARGET_X_RANGE - TOOL_RADIUS           # Machining range from apex (±
 FEED_RATE = 20          # Feed rate (mm/min)
 SAFE_Z = 0.0            # Safe retract height
 
+# Multi-part parameters
+NUM_PARTS = 10          # Number of parts to machine
+Y_OFFSET = 12.0         # Y axis offset between parts (mm)
+
 # ========== HELPER FUNCTIONS ==========
 
 def calc_arc_z(x, r, z_layer, xc=XC, zc=ZC):
@@ -188,6 +192,7 @@ def generate_gcode():
     output.append(f"; Parameters: R0={R0}mm, Layers={TOTAL_LAYERS}, DX={DX}mm")
     output.append(f"; Arc center: (X={XC}, Z={ZC})")
     output.append(f"; Machining range: X = {XC - X_RANGE:.2f} to {XC + X_RANGE:.2f} (±{X_RANGE}mm from apex)")
+    output.append(f"; Multi-part: {NUM_PARTS} parts, Y offset = {Y_OFFSET}mm each")
     output.append("; Arc orientation: Convex upward (180° inverted)")
     output.append("; " + "=" * 60)
     output.append("")
@@ -212,17 +217,35 @@ def generate_gcode():
     output.append("; NOTE: All subsequent machining paths have Z offset by -R0")
     output.append("")
 
-    # Layer scanning
+    # Layer scanning for multiple parts
     output.append("; ========== MAIN MACHINING LOOP ==========")
     output.append("")
 
-    for k in range(1, TOTAL_LAYERS + 1):
-        layer_gcode, _ = generate_layer(k)
-        output.append(layer_gcode)
+    for part_num in range(NUM_PARTS):
+        y_position = Y0 + part_num * Y_OFFSET
+
+        output.append(f"; {'=' * 60}")
+        output.append(f"; PART {part_num + 1} of {NUM_PARTS}: Y = {y_position:.1f}mm")
+        output.append(f"; {'=' * 60}")
+        output.append("")
+
+        # Move to starting position for this part
+        output.append(f"; Move to part {part_num + 1} starting position")
+        output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract to safe height")
+        output.append(f"G0 X{XC:.1f} Y{y_position:.1f}    ; Move to part center")
+        output.append(f"G0 Z{z_apex_origin:.3f}        ; Lower to origin")
+        output.append("")
+
+        for k in range(1, TOTAL_LAYERS + 1):
+            layer_gcode, _ = generate_layer(k, y_position)
+            output.append(layer_gcode)
+            output.append("")
+
+        output.append(f"; Part {part_num + 1} complete")
         output.append("")
 
     # Finish
-    output.append("; ========== MACHINING COMPLETE ==========")
+    output.append("; ========== ALL PARTS MACHINING COMPLETE ==========")
     output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract tool")
     output.append(f"G0 X0.0 Y0.0        ; Return to origin")
     output.append("M30                 ; Program end")
