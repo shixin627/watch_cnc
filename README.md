@@ -51,7 +51,7 @@ python generate_gcode_v2.py > output.nc
 python generate_gcode_v2.py
 ```
 
-**修改參數**（編輯 [generate_gcode_v2.py](generate_gcode_v2.py) 第 11-31 行）:
+**修改參數**（編輯 [generate_gcode_v2.py](generate_gcode_v2.py) 第 11-32 行）:
 
 ```python
 # ========== ADJUSTABLE PARAMETERS ==========
@@ -76,6 +76,7 @@ SAFE_Z = 0.0            # 安全退刀高度
 # Multi-part parameters（多零件參數）
 NUM_PARTS = 10          # 零件數量
 Y_OFFSET = 12.0         # 零件間 Y 軸間距 (mm)
+TRAVEL_HEIGHT = 10.0    # 零件間移動安全高度 (mm)
 ```
 
 ---
@@ -109,8 +110,8 @@ Part 10 (Y = 108.0mm) → 完成 15 層
 
 **路徑特點**:
 - 對稱切削：兩側同時向中心加工
-- 每個零件完成後抬刀，移動到下一個零件位置
-- 確保加工效率與路徑連續性
+- 零件間移動：抬高至 10mm（TRAVEL_HEIGHT）避免碰撞
+- 加工完成：原地抬高 20mm 後停止
 
 ---
 
@@ -495,6 +496,8 @@ lines.append(f"F{feed_rate:.1f}")
 - ✅ 預設支援 10 個零件，Y 軸間距 12.0mm
 - ✅ 優化路徑：兩側向中心對稱切削
 - ✅ 新增 TOOL_RADIUS 刀具半徑參數
+- ✅ 新增 TRAVEL_HEIGHT 參數（零件間移動高度 10mm）
+- ✅ 加工完成後原地抬高 20mm 停止
 
 ### v2.0 (2025-12-20)
 - ✅ 修正弧面幾何為 180° 倒置（凸起向上）

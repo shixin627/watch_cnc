@@ -29,6 +29,7 @@ SAFE_Z = 0.0            # Safe retract height
 # Multi-part parameters
 NUM_PARTS = 10          # Number of parts to machine
 Y_OFFSET = 12.0         # Y axis offset between parts (mm)
+TRAVEL_HEIGHT = 10.0    # Safe travel height between parts (mm)
 
 # ========== HELPER FUNCTIONS ==========
 
@@ -231,7 +232,7 @@ def generate_gcode():
 
         # Move to starting position for this part
         output.append(f"; Move to part {part_num + 1} starting position")
-        output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract to safe height")
+        output.append(f"G0 Z{TRAVEL_HEIGHT:.1f}         ; Retract to travel height")
         output.append(f"G0 X{XC:.1f} Y{y_position:.1f}    ; Move to part center")
         output.append(f"G0 Z{z_apex_origin:.3f}        ; Lower to origin")
         output.append("")
@@ -246,8 +247,7 @@ def generate_gcode():
 
     # Finish
     output.append("; ========== ALL PARTS MACHINING COMPLETE ==========")
-    output.append(f"G0 Z{SAFE_Z:.1f}         ; Retract tool")
-    output.append(f"G0 X0.0 Y0.0        ; Return to origin")
+    output.append("G0 Z20.0            ; Retract tool 20mm")
     output.append("M30                 ; Program end")
     output.append("%")
 
